@@ -1,0 +1,33 @@
+# ===== 密钥与环境（绝不入库）=====
+.env
+.env.*
+*.pem
+
+# ===== 本地数据与运行产物（不入库）=====
+out/
+logs/
+data/
+*.log
+*.db
+*.sqlite*
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ===== 备份与临时文件 =====
+_bak/
+*.bak
+*.tmp
+._*
+*_run.log
+
+# ===== 编辑器 / 操作系统 =====
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
