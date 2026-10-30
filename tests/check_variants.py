@@ -277,7 +277,7 @@ def test_merge_extensions_semantics() -> None:
     ⚠ 同时记录一个**实测事实**: 真实数据上 ZG/ZD 口径下相邻中枢**永不重叠**
     (BTCUSDT 1h 前 2 万根: 重叠 0 对 / 220 对相邻对) —— 因为 `ZSBuilder._finish`
     只在"某一段与原中枢无重叠"时才结束中枢, 而新中枢正是从那一端起算。
-    所以 `zs_merge` 对本实现是**结构性惰性开关**, 见 `ENGINE_VARIANTS_2026-09-29.md`。
+    所以 `zs_merge` 对本实现是**结构性惰性开关**(原因见 `chanbook/zhongshu.py` 的 `merge_adjacent`)。
     """
     from chanbook.zhongshu import ZS, merge_extensions
 

@@ -1,6 +1,6 @@
 """市场状态 / 位置 / 联动过滤 —— 移植 `chan-quant` 的 4 个研究维度。
 
-2026-09-29 第四轮: 按用户"根据 chan-quant 的内容补全 chanbook"的要求, 把 chan-quant
+2026-09-29 第四轮: 按"根据 chan-quant 的内容补全 chanbook"的要求, 把 chan-quant
 `app/` 下 4 个**纯本地确定性**过滤器移植进来, 逐个与源实现做口径一致性自检:
 
   * **overheat**   (app/overheat.py)   多周期追高过滤: 4h/1d 已过热则拦截

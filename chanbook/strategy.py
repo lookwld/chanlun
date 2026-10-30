@@ -76,8 +76,7 @@ EXIT_MODES = ("old", "stop")
 
 # --------------------------------------------------------------- 策略档案
 # 2026-09-29 **升级**: 把三轮回测里唯一有硬证据的一项固化为生产默认 ——
-# 「结构止损 + 一卖」离场。证据见 `ENGINE_VARIANTS_2026-09-29.md` /
-# `CHANGE_PLAN_2026-09-29.md`:
+# 「结构止损 + 一卖」离场。证据见 DESIGN.md §9.7 / §9.8:
 #   * `old`(改动前默认) 单笔净期望在 1h/2h/4h 上**全为负**
 #     (−0.162% / −0.230% / −0.440%);
 #   * `stop + S1` 是唯一单笔净 > 0.4% 的口径(1h +0.493% / 2h +0.426% /
@@ -175,7 +174,7 @@ class BookCfg:
     # >0 时要求 **日线 ATR14% <= atr1d_cap**; 0 = 关闭(默认, 逐位等价)。
     # ⚠ 与上面的 `vol_gate` 是**两个完全不同的维度**: `vol_gate` 是**成交量比**
     #   (量能配合), `atr1d_cap` 是**日线波动率的绝对水平**。chan-quant 把后者
-    #   也叫 `vol_gate` —— 名字撞车, 别混用(见 GAP_FROM_CHANQUANT_2026-09-29.md)。
+    #   也叫 `vol_gate` —— 名字撞车, 别混用(见 DESIGN.md §6)。
     atr1d_cap: float = 0.0
     atr1d_n: int = 14
     # 两条均线(审计 B6): off / ma / close / both(否决型) / size(仓位型)
@@ -195,7 +194,7 @@ class BookCfg:
 
     # ---- 2026-09-29 第四轮: chan-quant 能力补全(全部默认关闭 = 逐位等价) ----
     # 见 `market_filters.py` / `guards.py`。这些是 chan-quant 有、chanbook 缺的
-    # 研究维度, 移植口径已逐位自检(见 PARITY_2026-09-29.md)。
+    # 研究维度, 移植口径已逐位自检(见 tests/check_variants.py)。
     # ⚠ 全部是"信号后置过滤", 默认 off; 开启才建视图对象 ⇒ 默认路径零开销。
     # 大盘状态闸门(chan-quant app/regime.py): bull/range 只做多, bear 停机
     regime_gate: bool = False
@@ -490,7 +489,7 @@ def recommended_spot(**over) -> BookCfg:
         ① 生产/实盘侧显式声明"我在用生产口径", 读代码时不必反查默认值;
         ② 历史文档与脚本已在引用它, 改名只会产生无谓 diff。
 
-    升级内容(全部证据见 `CHANGE_PLAN_2026-09-29.md`):
+    升级内容(证据见 DESIGN.md §9.7):
       * `exit_mode="stop"` —— **必须**。主引擎原本无条件跑 `manage()`(追踪 +
         RR 目标) + 结构破位, 机械离场把中位持仓压到 0.75 天, 结构判据(中位
         3.83 天)没有机会表态。只开 `sell_exit` 而不动离场路径 = 空操作

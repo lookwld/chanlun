@@ -15,7 +15,7 @@ chan-quant 自己的实测结论（原文照抄该配置的注释）:
     * chanbook   的 `vol_gate`  == **成交量比**（后段均量 / 前段均量）
 
 同名，完全不同的两个维度。本轮测的是**前者**，开关名 `atr1d_cap`。
-（chanbook 的成交量版已在 `ENGINE_VARIANTS_2026-09-29.md` 的 E5 测过，结论：负。）
+（chanbook 的成交量版已测过，结论：负。）
 
 **口径**：与 `tools/backtest_engine.py` 完全一致（同一套 `stats_row` /
 `pool_index` / `signed_pairs`），但走**主引擎自己的调用路径**

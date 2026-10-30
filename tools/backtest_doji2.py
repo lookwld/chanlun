@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """十字星策略 v2 —— 「新低低位十字进场 + 同级别上涨后的顶信号离场」。
 
-相对 v1(tools/backtest_doji.py, 判决见 DOJI_2026-10-01.md)的三处修改(用户指定):
+相对 v1(tools/backtest_doji.py) 的三处修改:
 
   [周期] 剔除短周期, 只跑 2h 及以上: {2h, 4h, 1d}。
          2h 无归档原始档, 由 1h 现场聚合(D.resample, UTC 向下取整);

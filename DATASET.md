@@ -3,7 +3,7 @@
 把 `chanbook` 引擎的成交记录 + 日线上下文拍平成一张样本表，供"**入场判别建模**"用。
 本文件是**数据字典 + 陷阱清单 + 初步体检结论**，不是建模报告。
 
-- 生成器：`tools/build_dataset.py`（脱会话计划任务 `ChanBookDS` / `tools/run_dataset.cmd`）
+- 生成器：`tools/build_dataset.py`
 - 目录工具：`tools/field_catalog.py` → `out/dataset/fields.json`、`out/field_catalog.txt`
 - 体检工具：`tools/dataset_report.py` → `out/dataset_report.txt`
 
@@ -203,7 +203,7 @@ valid 两段同号且都 > 0.2pp**：
 ### 5.4 对建模的意义（诚实评估）
 
 > **【2026-09-28 补记 · 第①步已做完，判决：不部署】**
-> `tools/model_baseline.py` + `MODEL_BASELINE_2026-09-28.md` 已把下面第 ① 步做完。要点：
+> `tools/model_baseline.py` 已把下面第 ① 步做完。要点：
 > * 样本内**确实可学**：um OOF R²=+0.00741（打乱噪声带 [−0.00112,−0.00053]）、
 >   十分位价差 **+0.5664%（聚类 t=+13.41）**，5/5 折、6/6 年同号；spot +1.0293%（t=+3.93）。
 > * **但唯一的时间留出窗口上整体翻转**：um valid 价差 **−0.1913%（t=−3.43，显著为负）**，
@@ -216,7 +216,7 @@ valid 两段同号且都 > 0.2pp**：
 > * 另：um 上**零数值特征**（只用 `kind/trend/regime/b1_path` one-hot）就有 **+0.1822%**（t=+6.43）的
 >   样本内价差，占 `clean` 的 32% ⇒ 相当一部分"信号"只是训练期的**类别格子均值**，同样会翻符号。
 >
-> 详细数字与三轮归因见 `MODEL_BASELINE_2026-09-28.md`。
+> 详细数字与三轮归因见 `tools/model_baseline.py` 的输出。
 
 单变量探测器**弱**（只有中位二分、只看线性），所以上面不能证明"多变量也无效"。
 但两个事实要摆在前面：
@@ -240,7 +240,7 @@ valid 两段同号且都 > 0.2pp**：
 PY="python"
 
 # 1) 构建（约 7.5 分钟；um 15.2 分钟 + spot 1.3 分钟中前者占绝大部分）
-#    必须脱会话: 计划任务 ChanBookDS -> tools/run_dataset.cmd，日志 out/run_dataset.log
+#    必须脱离会话运行，日志 out/run_dataset.log
 $PY tools/build_dataset.py --markets um,spot --jobs 11
 
 # 2) 目录（字段全集 / 覆盖率 / 量纲 / 常量告警）

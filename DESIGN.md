@@ -11,7 +11,7 @@
 > ⚠ **默认值约定（2026-09-29 起）**：`BookCfg()` 的默认 = **生产口径**。
 > 改动前口径（追踪 3.0×risk + RR2 目标 + 结构破位）改用 `BookCfg.legacy(...)`
 > 显式表达。所有升级前编写的脚本/测试**已逐个锚定 legacy**，历史结论逐位可复现
-> —— 这是"允许改默认值"的前提条件。详见 `UPGRADE_2026-09-29.md`。
+> —— 这是"允许改默认值"的前提条件。详见 §9.7。
 
 ---
 
@@ -286,13 +286,13 @@ chanbook/
 | `tests/check_zs_beichi.py` | 43 | 中枢 ZG/ZD/GG/DD / 延伸新生扩展 / 走势三态 / MACD 增量 / 背驰正负例 |
 | `tests/check_points.py` | 37 | 三类买点 / 区间套（含二分窗口边界） / 归一化算术 / 无未来函数 |
 | `tests/check_engine.py` | 76 | ATR / 风控拒单 / 离开管理四分支 / 结构线 / 行情分桶 / 报告算术（含名义额加权） / `enable` 状态机 / 引擎截断一致性 |
-| `tests/check_timebase.py` | 8 | 时间基准静态闸门（AST 扫全部 `.py`；见 `TIMEBASE_AUDIT_2026-09-29.md`） |
+| `tests/check_timebase.py` | 8 | 时间基准静态闸门（AST 扫全部 `.py`） |
 | `tests/check_resonance.py` | 19 | 多级别共振 + **无未来函数**硬不变量 |
 | `tests/check_variants.py` | 116 | 8 项改造开关（**A** 关=改动前 / **B** 开=生效）+ **C 默认=生产口径（升级自证）** |
 
 > 2026-09-27 第二轮新增 17 项：`check_points` +7（`test_nested_beichi_window`）、
 > `check_engine` +10（`test_scanner_enable_keeps_state_machine` / `test_report_notional_weighting`）。
-> 原因见 §9.6 与 `AB_2026-09-27.md` §2。
+> 原因见 §9.6。
 
 ### 9.2 实测性能（本地 12 逻辑核 / 15.9G）
 
@@ -361,9 +361,8 @@ stop = max(stop, struct_low - a)                      # ← 这一行把 atr_mul
 | `trail15` / `trail20` / `trail30` / `trail40` | 追踪回撤倍数扫描（默认 合约 2.0 / 现货 3.0） |
 | `rr30t20` | 可加性检验：`rr=3.0` × `trail=2.0` |
 
-运行方式（**必须脱离会话**）：`tools/run_ab_detached.cmd`（第一轮 11 变体）、
-`tools/run_ab_fix.cmd`（修复批次）、`tools/run_ab_trail.cmd`（离场参数扫描） + Windows 计划任务
-（`Register-ScheduledTask`；`schtasks.exe` 在沙箱黑名单里会被拦）。
+运行方式（**必须脱离会话**）：直接调用 `tools/run_ab.py`；长作业建议交给系统计划任务
+（Windows 的 `Register-ScheduledTask` 或 Linux 的 `systemd-run`）托管。
 进度看 `out/run_ab*.log`，结果落 `out/ab_*.txt`。
 
 ⚠️ **运行期间不得修改任何 `chanbook/*.py`**：Windows 下 `mp.Pool` 是 spawn 模式，
@@ -372,8 +371,7 @@ stop = max(stop, struct_low - a)                      # ← 这一行把 atr_mul
 
 ⚠️ **比对结果时不要用文件 `md5sum`**：成交记录的输出顺序依赖并行调度（同一 `entry_ts`
 内多标的的完成先后不定），同一配置可能产出字节数相同但排列不同的文件。
-要比就用**排序后的集合 md5**（按 `sym, entry_ts, side, kind, reason`）—— 见
-`TRAIL_RR_SWEEP_2026-09-28.md` §2。
+要比就用**排序后的集合 md5**（按 `sym, entry_ts, side, kind, reason`）—— 见 §9.8。
 
 ### 9.6 实施中发现的第 6 个缺陷：`enable` 掐断了 B1/B2 的共享状态机
 
@@ -392,7 +390,7 @@ stop = max(stop, struct_low - a)                      # ← 这一行把 atr_mul
 
 ### 9.7 A/B 结果与判决
 
-完整报告见 **`AB_2026-09-27.md`**。要点：
+要点：
 - 新引擎把候选池毛期望从旧引擎的 **-0.092%**（合约）/ **-0.101%**（现货）
   提升到 **-0.010%** / **+0.197%**（最佳配置）；
 - 但门槛是净为正（毛期望需 > +0.12% / +0.20%），冠军配置仍差 **0.130pp / 0.003pp** ⇒ **不部署**；
@@ -403,7 +401,7 @@ stop = max(stop, struct_low - a)                      # ← 这一行把 atr_mul
 
 ### 9.8 离场参数扫描（`rr` / `trail_mult`）与判决
 
-完整报告见 **`TRAIL_RR_SWEEP_2026-09-28.md`**；事前只读诊断见 `EXIT_DIAG_2026-09-27.md`。
+（该轮扫描的结论如下；原始报告不在本仓库。）
 
 **为什么扫这一维**：`exit_attrib.py` 的 R 口径归因显示，2R 目标只有 4~12% 的笔能触发，
 而追踪止损贡献了 `um_all` 的 **+44,585R**（笔均 +1.27R，最大正项）。

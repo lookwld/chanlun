@@ -381,7 +381,7 @@ if os.path.isdir(sym_file):
 
 # ---- 被磁盘护栏拒绝时: 必须中止 + 必须把磁盘数字写进状态(看板要显示) ----
 # 2026-10-09 实测发现过一次: 拒绝对了, 但 counts 在函数末尾才挂到 st.d 上,
-# 于是 status.json 里 counts={} —— 看板磁盘卡片显示 "—"。偏偏这时候用户最需要
+# 于是 status.json 里 counts={} —— 看板磁盘卡片显示 "—"。偏偏这时候使用者最需要
 # 看到"还剩多少 / 预算是多少"。这条断言就是钉住那个修复的。
 with tempfile.TemporaryDirectory(prefix="cbrefuse_") as r:
     os.makedirs(os.path.join(r, "out", "scan"), exist_ok=True)

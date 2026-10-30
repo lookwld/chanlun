@@ -509,7 +509,7 @@ def main() -> int:
         counts["disk_budget_mb"] = round(plan["budget_mb"])
         # ⚠ 立刻把 counts 挂到状态对象上(2026-10-09 补): 否则**磁盘不足被拒**时
         #   下面直接 finish+return, 而 `st.d["counts"] = counts` 在函数末尾才执行 ——
-        #   看板拿到 counts={}, 磁盘卡片显示 "—"。偏偏这时候用户最需要看到那两个数字
+        #   看板拿到 counts={}, 磁盘卡片显示 "—"。偏偏这时候使用者最需要看到那两个数字
         #   (剩多少、预算是多少)。挂上后每次 flush 都会带上, 运行中也能实时看到。
         st.d["counts"] = counts
         if plan["free_mb"] - est < plan["reserve_mb"]:
