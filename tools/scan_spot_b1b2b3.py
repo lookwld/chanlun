@@ -132,6 +132,9 @@ EXCL_STABLE = {
     # 1h 均|涨跌|=0.000063 —— 与 USDC(0.000037)/USDE(0.000055) 同级,
     # 数量级上比真币低两个数量级。见 `--audit` 的输出。
     "U",
+    # `RWUSD`(币安收益型美元代币) 同理, 2026-10-30 审计实测 价=0.9998、
+    # 1h 均|涨跌|=0.000096 —— 与 USDC 同级, 名字里带 USD 才没被忽略。
+    "RWUSD",
 }
 # 实物锚定(黄金/白银/商品)
 EXCL_PHYSICAL = {"PAXG", "XAUT", "KAU", "KAG", "GOLD", "SILVER", "XAU", "XAG"}
@@ -361,6 +364,23 @@ def fmt_local(ms: int, f: str = "%m-%d %H:%M") -> str:
     return D.fmt(ms, f)
 
 
+def times_of_cell(tfs, per_tf) -> dict:
+    """把「每格的信号时间」整理成旁挂 JSON 的一行, 供看板做**鼠标悬停提示**。
+
+    `per_tf(tf)` 返回该格要展示的若干条 `(kind, bar_ts)`(买点在前、卖点在后),
+    这里补上该周期的收盘时刻 = 开盘 + 周期长度。
+
+    为什么单独出 JSON 而不是写进 CSV 格子: 用户要求**表格显示保持原样**
+    (`B3 S1` 两个字母), 具体时间只在悬停时出现 —— 写进格子会把 8 个周期列撑宽。
+    """
+    out = {}
+    for t in tfs:
+        arr = [[k, ts, ts + D.TF_MS[t]] for k, ts in per_tf(t) if k]
+        if arr:
+            out[LEVEL_CN[t]] = arr
+    return out
+
+
 def human_age(ms: int) -> str:
     h = ms / 3_600_000
     if h < 1:
@@ -525,7 +545,12 @@ def build_state_report(args, tfs, keep, by_key, excluded, universe, syms,
 
     def cell(e, tf) -> str:
         """格内容。同一格**可能买卖点都有**(实测 29.1% 的 (标的,周期) 两者同时有效):
-        买点写在前、卖点写在后, 如 `B2 S1`; 两者都没有写 `·`。"""
+        买点写在前、卖点写在后, 如 `B2 S1`; 两者都没有写 `·`。
+
+        ⚠ 格内**只放字母**, 不放时间(用户 2026-10-30 定稿): 时间单独写到
+        `<out>_bysym_times.json`, 由看板渲染成 `title` 悬停提示。写进格子会把
+        8 个周期列撑宽, 反而看不清共振。
+        """
         ks = [x for x in (e["kind"][tf], e["skind"][tf]) if x]
         return " ".join(ks) if ks else "·"
 
@@ -587,6 +612,12 @@ def build_state_report(args, tfs, keep, by_key, excluded, universe, syms,
       "(`·` = 两者都不在)。**共振/现价/年龄是信号后面的汇总列**, "
       "不夹在标的名与信号之间。")
     A("")
+    A("**信号的具体出现时间**: 格内仍只写字母(`B3`), **看板里把鼠标悬停在字母上**, "
+      "即显示该信号的时间, 精确到「年月日 时:分」: 15分钟的信号提示是 "
+      "`这根K线 2026-10-30 14:15 → 2026-10-30 14:30（北京时间）`, 1小时、4小时同理; "
+      "月线/周线/3日线/日线只到日期。时间也在机器可读产物 "
+      "`_bysym_times.json` 里(键 = 标的 → 周期名 → `[字母, 开盘ms, 收盘ms]`)。")
+    A("")
     A("**排序**:")
     A("")
     A("1. **买点共振数多的在前**(几个周期同时处于买点);")
@@ -619,8 +650,13 @@ def build_state_report(args, tfs, keep, by_key, excluded, universe, syms,
     bysym = [["rank", "symbol"] + [LEVEL_CN[t] for t in tfs]
              + ["buy_resonance", "sell_resonance", "last_close",
                 "newest_sig_time", "oldest_sig_time", "cells_long_to_short"]]
+    # 悬停提示用: 标的 → 周期名 → [[字母, 开盘ms, 收盘ms], ...](买点在前、卖点在后)
+    times: dict = {}
     for i, (sym, e) in enumerate(ranked, 1):
         cells = " | ".join(cell(e, t) for t in tfs)
+        times[sym] = times_of_cell(tfs, lambda t: [
+            (e["meta"][t]["kind"], e["meta"][t]["bar_ts"]) if e["meta"][t] else (None, 0),
+            (e["smeta"][t]["kind"], e["smeta"][t]["bar_ts"]) if e["smeta"][t] else (None, 0)])
         px = "—"
         for t in reversed(tfs):
             rr = by_key.get((sym, t))
@@ -839,7 +875,7 @@ def build_state_report(args, tfs, keep, by_key, excluded, universe, syms,
       "**单笔毛期望 ≤ 双边手续费的组合长期必死**, 与胜率无关。")
     A("7. **不含仓位、不含执行成本。** 本表只是买/卖点的结构扫描, 不构成交易建议。")
     A("")
-    return "\n".join(L) + "\n", bysym
+    return "\n".join(L) + "\n", bysym, times
 
 
 def main() -> int:
@@ -995,15 +1031,21 @@ def main() -> int:
     ASOF = max((r.get("asof_ms") or 0) for r in results) or NOW
 
     if args.state:
-        md, bysym = build_state_report(args, tfs, keep, by_key, excluded,
-                                       universe, syms, span, NOW, ASOF, errs)
+        md, bysym, times = build_state_report(args, tfs, keep, by_key, excluded,
+                                              universe, syms, span, NOW, ASOF, errs)
         with open(args.out + ".md", "w", encoding="utf-8") as fh:
             fh.write(md)
         with open(args.out + "_bysym.csv", "w", encoding="utf-8",
                   newline="") as fh:
             csv.writer(fh).writerows(bysym)
-        print(f"报告已写: {args.out}.md / .csv / _bysym.csv(一标的一行) / .json",
-              flush=True)
+        # 悬停提示的时间旁挂文件(与 _bysym.csv 同源同轮, 不参与表格显示)
+        json.dump({"generated": time.strftime("%Y-%m-%d %H:%M:%S"),
+                   "levels": [LEVEL_CN[t] for t in tfs],
+                   "by_symbol": times},
+                  open(args.out + "_bysym_times.json", "w", encoding="utf-8"),
+                  ensure_ascii=False)
+        print(f"报告已写: {args.out}.md / .csv / _bysym.csv(一标的一行) / "
+              f"_bysym_times.json(悬停时间) / .json", flush=True)
         return 0
 
     A("# 币安现货全市场 B1/B2/B3 扫描")
@@ -1107,6 +1149,8 @@ def main() -> int:
         "tot": 0, "tot_s": 0, "nbuy": 0, "nsell": 0,
         "lv": {t: [] for t in tfs},        # 各级别命中的买点类型(去重 + 按展示优先级)
         "lv_s": {t: [] for t in tfs},      # 各级别命中的卖点类型
+        "lv_ts": {t: 0 for t in tfs},      # 该格买点**实际显示的那一个**的 bar_ts
+        "lv_sts": {t: 0 for t in tfs},     # 该格卖点**实际显示的那一个**的 bar_ts
         "lv_n": {t: 0 for t in tfs},       # 各级别的买点信号条数
         "lv_new": {t: 0 for t in tfs},     # 各级别最近信号的 bar_ts
         "newest": 0,
@@ -1135,16 +1179,22 @@ def main() -> int:
                 e["lv_n"][tf] = len(r["hits"])
                 e["lv"][tf] = [_last_kind(r["hits"], PRIO)]
                 e["lv_new"][tf] = max(h["bar_ts"] for h in r["hits"])
+                # 时间必须与格内那个字母**同源**: 都是 `max(bar_ts)` 那一刻
+                e["lv_ts"][tf] = e["lv_new"][tf]
             if r.get("shits"):
                 e["tot_s"] += len(r["shits"])
                 e["nsell"] += 1
                 e["lv_s"][tf] = [_last_kind(r["shits"], KIND_RANK)]
-                e["lv_new"][tf] = max(e["lv_new"][tf],
-                                      max(h["bar_ts"] for h in r["shits"]))
+                e["lv_sts"][tf] = max(h["bar_ts"] for h in r["shits"])
+                e["lv_new"][tf] = max(e["lv_new"][tf], e["lv_sts"][tf])
             e["newest"] = max(e["newest"], e["lv_new"][tf])
 
     def cell_of(e, t) -> str:
-        """格内容: 买点在前、卖点在后(同一周期可能两者都有)。"""
+        """格内容: 买点在前、卖点在后(同一周期可能两者都有)。
+
+        ⚠ 格内**只放字母**; 时间走 `<out>_bysym_times.json` 给看板做悬停提示
+        (与状态表 `cell()` 同一口径)。
+        """
         ks = list(e["lv"][t]) + list(e["lv_s"][t])
         return " ".join(ks) if ks else "·"
 
@@ -1168,6 +1218,10 @@ def main() -> int:
       "**每个方向只标一个, 所以格内最多 2 个字母**, 买点在前、卖点在后; "
       "`·` = 该周期该方向没有信号。"
       "**共振/信号数是信号后面的汇总列**, 不夹在标的名与信号之间。")
+    A("")
+    A("**信号的具体出现时间**: 格内仍只写字母, **看板里把鼠标悬停在字母上**即显示"
+      "该信号的时间(精确到「年月日 时:分」, 含这根K线的起止时刻与距今天数)。"
+      "同一份数据在 `_bysym_times.json` 里。")
     A("")
     A("**排序**:")
     A("")
@@ -1250,12 +1304,16 @@ def main() -> int:
     # 按标的聚合的宽表 CSV(便于直接进 Excel 透视)
     # ⚠ 列序与状态表宽表**必须一致**: 标的名紧跟各周期格(长周期在前), 汇总列在后 ——
     #   用户点名过这个规格, 两张表不一致会让人在 Excel 里对不上列。
+    times: dict = {}          # 悬停提示用, 与 _bysym.csv 同源同轮
     with open(args.out + "_bysym.csv", "w", encoding="utf-8", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["rank", "symbol"] + [LEVEL_CN[t] for t in tfs]
                    + ["buy_resonance", "sell_resonance", "signals_buy",
                       "signals_sell", "last_close", "newest_ts", "newest_time"])
         for i, (sym, e) in enumerate(ranked, 1):
+            times[sym] = times_of_cell(tfs, lambda t: [
+                (e["lv"][t][0], e["lv_ts"][t]) if e["lv"][t] else (None, 0),
+                (e["lv_s"][t][0], e["lv_sts"][t]) if e["lv_s"][t] else (None, 0)])
             px = ""
             for t in reversed(tfs):
                 rr = by_key.get((sym, t))
@@ -1266,6 +1324,12 @@ def main() -> int:
                        + [f"{e['nbuy']}/{len(tfs)}", f"{e['nsell']}/{len(tfs)}",
                           e["tot"], e["tot_s"], px, e["newest"],
                           fmt_local(e["newest"], "%Y-%m-%d %H:%M")])
+
+    json.dump({"generated": time.strftime("%Y-%m-%d %H:%M:%S"),
+               "levels": [LEVEL_CN[t] for t in tfs],
+               "by_symbol": times},
+              open(args.out + "_bysym_times.json", "w", encoding="utf-8"),
+              ensure_ascii=False)
 
     # 排除清单
     A("## 三、已排除标的(共 %d 个)" % len(excluded))
