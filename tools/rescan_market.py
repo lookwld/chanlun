@@ -270,7 +270,13 @@ def disk_plan(scan_dir: str, reserve_mb: int, budget_mb: int) -> dict:
     这样"空间限制"不是写死的常数, 而是跟着服务器实际剩余空间走 —— 服务器变紧了
     它自动收紧, 换了更大的盘它自动放宽。
     """
-    du = shutil.disk_usage(scan_dir)
+    # 首次运行(out/scan 还不存在)时不能直接 disk_usage —— 它对不存在的路径抛
+    # FileNotFoundError。向上回溯到最近的已存在目录即可: 同一分区, 用量相同。
+    # 不在这里 makedirs: `--dry` 必须无副作用, 只打印计划。
+    probe = os.path.abspath(scan_dir)
+    while not os.path.isdir(probe) and os.path.dirname(probe) != probe:
+        probe = os.path.dirname(probe)
+    du = shutil.disk_usage(probe)
     free_mb = du.free / 1e6
     budget = float(budget_mb) if budget_mb > 0 else max(0.0, free_mb - float(reserve_mb))
     return {"total_mb": du.total / 1e6, "used_mb": du.used / 1e6, "free_mb": free_mb,
